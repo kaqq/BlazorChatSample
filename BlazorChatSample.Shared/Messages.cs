@@ -19,6 +19,11 @@
         /// Name of the Hub method to send a message
         /// </summary>
         public const string SEND = "SendMessage";
+        
+        /// <summary>
+        /// Send a private message to a single user
+        /// </summary>
+        public const string SEND_PRIVATE = "SendPrivateMessage";
 
     }
 }

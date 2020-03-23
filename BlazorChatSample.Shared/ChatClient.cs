@@ -104,6 +104,15 @@ namespace BlazorChatSample.Shared
             await _hubConnection.SendAsync(Messages.SEND, _username, message);
         }
 
+        public async Task SendUserAsync(string toUser, string message)
+        {
+            // check we are connected
+            if (!_started)
+                throw new InvalidOperationException("Client not started");
+            // send the message
+            await _hubConnection.SendAsync(Messages.SEND_PRIVATE, _username, toUser, message);
+        }
+
         /// <summary>
         /// Stop the client (if started)
         /// </summary>

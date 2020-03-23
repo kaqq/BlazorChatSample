@@ -32,6 +32,11 @@ namespace BlazorChatSample.Server.Hubs
             await Clients.All.SendAsync(Messages.RECEIVE, username, message);
         }
 
+        public async Task SendPrivateMessage(string username, string toUser, string message)
+        {
+            await Clients.User(toUser).SendAsync(Messages.RECEIVE, username, message);
+        }
+
         /// <summary>
         /// Register username
         /// </summary>
