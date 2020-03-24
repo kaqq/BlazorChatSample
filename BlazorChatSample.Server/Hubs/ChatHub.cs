@@ -32,9 +32,37 @@ namespace BlazorChatSample.Server.Hubs
             await Clients.All.SendAsync(Messages.RECEIVE, username, message);
         }
 
+        /// <summary>
+        /// Send a private message to single user (a 'whisper')
+        /// </summary>
+        /// <param name="username">sender's nane</param>
+        /// <param name="toUser">username to send to</param>
+        /// <param name="message">message</param>
+        /// <returns></returns>
         public async Task SendPrivateMessage(string username, string toUser, string message)
         {
-            await Clients.User(toUser).SendAsync(Messages.RECEIVE, username, message);
+            // lookup connectionId for toUser
+            var connectionId = GetConnectionIdForUser(toUser);
+            if (!string.IsNullOrEmpty(connectionId))
+            {
+                // send to single connection as a 'whisper'
+                var msg = $"[whispers] {message}";
+                await Clients.Client(connectionId).SendAsync(Messages.RECEIVE, username, msg);
+            }
+            else
+                Console.WriteLine("Unable to find " + toUser);
+        }
+
+        /// <summary>
+        /// Obtain connectionId from list
+        /// </summary>
+        /// <param name="username"></param>
+        /// <returns></returns>
+        private string GetConnectionIdForUser(string username)
+        {
+            Console.WriteLine("Lookup user " + username);
+            var match = userLookup.FirstOrDefault(u => string.Equals(u.Value, username, StringComparison.InvariantCultureIgnoreCase));
+            return match.Key;
         }
 
         /// <summary>

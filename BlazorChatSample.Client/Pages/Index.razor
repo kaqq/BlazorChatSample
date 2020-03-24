@@ -49,6 +49,8 @@
             <hr />
             <textarea class="input-lg" placeholder="enter your comment" @bind="@newMessage"></textarea>
             <button class="btn btn-default" @onclick="@SendAsync">Send</button>
+
+            <div>Whisper to: <input type="text" @bind="toUser" /></div>
         </div>
     }
 </div>
@@ -67,6 +69,8 @@
 
     // new message input
     string newMessage = null;
+
+    string toUser = null;
 
     // list of messages in chat
     List<Message> messages = new List<Message>();
@@ -143,8 +147,16 @@
     {
         if (chatting && !string.IsNullOrWhiteSpace(newMessage))
         {
-            // send message to hub
-            await client.SendAsync(newMessage);
+            if(string.IsNullOrEmpty(toUser))
+            {
+                // send message to hub
+                await client.SendAsync(newMessage);
+            }
+            else
+            {
+                // whisper to user
+                await client.SendUserAsync(toUser, newMessage);
+            }
             // clear input box
             newMessage = "";
         }
