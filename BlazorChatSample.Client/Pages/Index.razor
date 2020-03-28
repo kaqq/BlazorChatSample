@@ -1,64 +1,18 @@
-﻿@using BlazorChatSample.Shared 
+﻿@using BlazorChatSample.Shared
 @page "/"
 @inject NavigationManager navigationManager
-<div></div>
+
 @if (inGame)
 {
     <div class="sidebar">
         <NavMenu />
     </div>
-}
-<div class="top-row px-4 mainPage">
-    @if (inGame)
-    {
-    <p>You are connected as <b>@username</b> to the room  <b>@roomName</b> </p>
+    <div class="top-row px-4 mainPage">
+        <p>You are connected as <b>@username</b> to the room  <b>@roomName</b> </p>
         <button class="btn btn-sm btn-warning ml-md-auto" @onclick="@DisconnectAsync">Disconnect</button>
-    }
-</div>
+    </div>
 
-<div class="content px-4">
-
-    <h1>Inspector board game</h1>
-
-    @if (!inGame)
-    {
-        @* Moved instructions to shared component *@
-        <Instructions />
-
-        <h2></h2>
-        <p>
-            Enter your name:
-        </p>
-        <input type="text" maxlength="32" @bind="@username" />
-
-        <p>
-            create new room:
-        </p>
-        <input type="text" maxlength="32" @bind="@roomName" />
-        <button type="button" @onclick="@(()=>StartRoom(roomName))"><span class="oi oi-chat" aria-hidden="true"></span> Create room</button>
-
-        <p>
-            Select room:
-        </p>
-
-        @foreach (var room in rooms)
-        {
-            <div>
-                <div class="user">@room.Name</div>
-                <div class="msg">@room.GuestCount</div>
-                <button type="button" @onclick="@(() => StartRoom(room.Name))"><span class="oi oi-chat" aria-hidden="true"></span>Join</button>
-            </div>
-        }
-
-        @if (message != null)
-        {
-            <div class="invalid-feedback">@message</div>
-            <small id="emailHelp" class="form-text text-muted">@message</small>
-        }
-    }
-
-    @if (inGame)
-    {
+    <div class="content px-4">
         <div id="scrollbox">
 
             @foreach (var item in messages)
@@ -72,27 +26,70 @@
             <textarea class="input-lg" placeholder="enter your comment" @bind="@newMessage"></textarea>
             <button class="btn btn-default" @onclick="@SendAsync">Send</button>
         </div>
+    </div>
+}
+
+
+@if (!inGame)
+{
+
+<div class="content px-4">
+
+    <h1>Inspector board game</h1>
+    @* Moved instructions to shared component *@
+
+    <h2></h2>
+    <p>
+        Enter your name:
+    </p>
+    <input type="text" maxlength="32" @bind="@username" />
+
+    <p>
+        create new room:
+    </p>
+    <input type="text" maxlength="32" @bind="@roomName" />
+    <button type="button" @onclick="@(()=>StartRoom(roomName))"><span class="oi oi-chat" aria-hidden="true"></span> Create room</button>
+
+    <p>
+        Select room:
+    </p>
+
+    @foreach (var room in rooms)
+    {
+        <div>
+            <div class="user">@room.Name</div>
+            <div class="msg">@room.GuestCount</div>
+            <button type="button" @onclick="@(() => StartRoom(room.Name))"><span class="oi oi-chat" aria-hidden="true"></span>Join</button>
+        </div>
+    }
+
+    @if (message != null)
+    {
+        <div class="invalid-feedback">@message</div>
+        <small id="emailHelp" class="form-text text-muted">@message</small>
     }
 </div>
-
-@code  {
-    bool inGame = false;
-
-    string username = null;
-
-    string roomName = null;
-
-    GameClient client = null;
-
-    string message = null;
-
-    string newMessage = null;
-
-    List<Message> messages = new List<Message>();
+}
 
 
-    List<ChatRoom> rooms = new List<ChatRoom>()
-    {
+    @code  {
+        bool inGame = false;
+
+        string username = null;
+
+        string roomName = null;
+
+        GameClient client = null;
+
+        string message = null;
+
+        string newMessage = null;
+
+        List<Message> messages = new List<Message>();
+
+
+        List<ChatRoom> rooms = new List<ChatRoom>()
+{
         new ChatRoom()
         {
             GuestCount = 1,
@@ -107,71 +104,71 @@
     };
 
 
-    async Task StartRoom(string roomName)
-    {
-        if (string.IsNullOrWhiteSpace(username))
+        async Task StartRoom(string roomName)
         {
-            message = "Please enter a name";
-            return;
-        };
-        if (string.IsNullOrWhiteSpace(roomName))
-        {
-            message = "Please select room";
-            return;
-        };
-        this.roomName = roomName;
-        try
-        {
-            messages.Clear();
-            string baseUrl = navigationManager.BaseUri;
-            client = new GameClient(username, roomName, baseUrl);
-            client.MessageReceived += MessageReceived;
-            Console.WriteLine("Index: chart starting...");
-            await client.StartAsync();
-            Console.WriteLine("Index: chart started?");
-            inGame = true;
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                message = "Please enter a name";
+                return;
+            };
+            if (string.IsNullOrWhiteSpace(roomName))
+            {
+                message = "Please select room";
+                return;
+            };
+            this.roomName = roomName;
+            try
+            {
+                messages.Clear();
+                string baseUrl = navigationManager.BaseUri;
+                client = new GameClient(username, roomName, baseUrl);
+                client.MessageReceived += MessageReceived;
+                Console.WriteLine("Index: chart starting...");
+                await client.StartAsync();
+                Console.WriteLine("Index: chart started?");
+                inGame = true;
+            }
+            catch (Exception e)
+            {
+                message = $"ERROR: Failed to start chat client: {e.Message}";
+                Console.WriteLine(e.Message);
+                Console.WriteLine(e.StackTrace);
+            }
         }
-        catch (Exception e)
-        {
-            message = $"ERROR: Failed to start chat client: {e.Message}";
-            Console.WriteLine(e.Message);
-            Console.WriteLine(e.StackTrace);
-        }
-    }
 
-    void MessageReceived(object sender, MessageReceivedEventArgs e)
-    {
-        bool isMine = false;
-        if (!string.IsNullOrWhiteSpace(e.Username))
+        void MessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            isMine = string.Equals(e.Username, username, StringComparison.CurrentCultureIgnoreCase);
+            bool isMine = false;
+            if (!string.IsNullOrWhiteSpace(e.Username))
+            {
+                isMine = string.Equals(e.Username, username, StringComparison.CurrentCultureIgnoreCase);
+            }
+            var newMsg = new Message(e.Username, e.Message, isMine);
+            messages.Add(newMsg);
+            StateHasChanged();
         }
-        var newMsg = new Message(e.Username, e.Message, isMine);
-        messages.Add(newMsg);
-        StateHasChanged();
-    }
 
-    async Task DisconnectAsync()
-    {
-        if (inGame)
+        async Task DisconnectAsync()
         {
-            await client.StopAsync();
-            client = null;
-            message = "";
-            inGame = false;
+            if (inGame)
+            {
+                await client.StopAsync();
+                client = null;
+                message = "";
+                inGame = false;
+            }
         }
-    }
 
-    async Task SendAsync()
-    {
-        if (inGame && !string.IsNullOrWhiteSpace(newMessage))
+        async Task SendAsync()
         {
-            await client.SendAsync(newMessage);
-            newMessage = "";
+            if (inGame && !string.IsNullOrWhiteSpace(newMessage))
+            {
+                await client.SendAsync(newMessage);
+                newMessage = "";
+            }
         }
-    }
 
-    class Message
+class Message
     {
         public Message(string username, string body, bool mine)
         {
@@ -193,4 +190,4 @@
         }
     }
 
-}
+    }
