@@ -29,26 +29,20 @@ namespace BlazorChatSample.Server.Hubs
         /// <returns></returns>
         public async Task SendMessage(string username, string message)
         {
-            await Clients.All.SendAsync(Messages.RECEIVE, username, message);
+           // await Clients.Group("test").SendCoreAsync(Messages.RECEIVE, username, message);
+            await Clients.All.SendAsync(ServerMessages.RECEIVE, username, message);
         }
 
-        /// <summary>
-        /// Register username
-        /// </summary>
-        /// <param name="username"></param>
-        /// <returns></returns>
-        public async Task Register(string username)
+        public async Task PlayerAction(PlayerAction action)
+        {
+
+        }
+
+            public async Task JoinRoom(string username,string roomName)
         {
             var currentId = Context.ConnectionId;
-            if (!userLookup.ContainsKey(currentId))
-            {
-                // maintain a lookup of connectionId-to-username
-                userLookup.Add(currentId, username);
-                // re-use existing message for now
-                await Clients.AllExcept(currentId).SendAsync(
-                    Messages.RECEIVE,
-                    username, $"{username} joined the chat");
-            }
+            await Groups.AddToGroupAsync(currentId, roomName);
+            await Clients.AllExcept(currentId).SendAsync(ClientMessages.CLIENTJOINED,username);
         }
 
         /// <summary>
@@ -76,11 +70,13 @@ namespace BlazorChatSample.Server.Hubs
 
             userLookup.Remove(id);
             await Clients.AllExcept(Context.ConnectionId).SendAsync(
-                Messages.RECEIVE,
+                ServerMessages.RECEIVE,
                 username, $"{username} has left the chat");
             await base.OnDisconnectedAsync(e);
         }
 
 
     }
+
+   
 }

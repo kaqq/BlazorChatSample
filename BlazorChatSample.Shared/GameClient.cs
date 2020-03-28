@@ -1,82 +1,66 @@
-﻿using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace BlazorChatSample.Shared
 {
 
-    /// <summary>
-    /// Generic client class that interfaces .NET Standard/Blazor with SignalR Javascript client
-    /// </summary>
-    public class ChatClient : IAsyncDisposable
+    public class GameClient : IAsyncDisposable
     {
         public const string HUBURL = "/ChatHub";
 
         private readonly string _hubUrl;
         private HubConnection _hubConnection;
 
-        /// <summary>
-        /// Ctor: create a new client for the given hub URL
-        /// </summary>
-        /// <param name="siteUrl">The base URL for the site, e.g. https://localhost:1234 </param>
-        /// <remarks>
-        /// Changed client to accept just the base server URL so any client can use it, including ConsoleApp!
-        /// </remarks>
-        public ChatClient(string username, string siteUrl)
+        public GameClient(string username,string roomName, string siteUrl)
         {
-            // check inputs
             if (string.IsNullOrWhiteSpace(username))
                 throw new ArgumentNullException(nameof(username));
+            if (string.IsNullOrWhiteSpace(roomName))
+                throw new ArgumentNullException(nameof(roomName));
             if (string.IsNullOrWhiteSpace(siteUrl))
                 throw new ArgumentNullException(nameof(siteUrl));
-            // save username
             _username = username;
-            // set the hub URL
+            _roomName = roomName;
             _hubUrl = siteUrl.TrimEnd('/') + HUBURL;
         }
 
-        /// <summary>
-        /// Name of the chatter
-        /// </summary>
         private readonly string _username;
 
-        /// <summary>
-        /// Flag to show if started
-        /// </summary>
+        private readonly string _roomName;
+
         private bool _started = false;
 
-        /// <summary>
-        /// Start the SignalR client 
-        /// </summary>
+
         public async Task StartAsync()
         {
             if (!_started)
             {
-                // create the connection using the .NET SignalR client
                 _hubConnection = new HubConnectionBuilder()
                     .WithUrl(_hubUrl)
                     .Build();
-                Console.WriteLine("ChatClient: calling Start()");
-
-                // add handler for receiving messages
-                _hubConnection.On<string, string>(Messages.RECEIVE, (user, message) =>
-                 {
-                     HandleReceiveMessage(user, message);
-                 });
-
-                // start the connection
+                RegisterServerEvents();
                 await _hubConnection.StartAsync();
-
-                Console.WriteLine("ChatClient: Start returned");
+                await _hubConnection.SendAsync(ServerMessages.JOINROOM, _username, _roomName);
                 _started = true;
-
-                // register user on hub to let other clients know they've joined
-                await _hubConnection.SendAsync(Messages.REGISTER, _username);
             }
+        }
+
+        private void RegisterServerEvents()
+        {
+            _hubConnection.On<string, string>(ServerMessages.RECEIVE, (user, message) =>
+            {
+                HandleReceiveMessage(user, message);
+            });
+            _hubConnection.On<string>(ClientMessages.CLIENTJOINED, (user) =>
+            {
+                HandleNewClient(user);
+            });
+        }
+
+        private void HandleNewClient(string user)
+        {
+          
         }
 
         /// <summary>
@@ -108,13 +92,18 @@ namespace BlazorChatSample.Shared
             if (!_started)
                 throw new InvalidOperationException("Client not started");
             // send the message
-            await _hubConnection.SendAsync(Messages.SEND, _username, message);
+            await _hubConnection.SendAsync(ServerMessages.SEND, _username, message);
+        }
+
+        public async Task PlayerAction(PlayerAction action)
+        {
+            await _hubConnection.SendAsync(ServerMessages.PLAYERACTION,  action);
         }
 
         /// <summary>
-        /// Stop the client (if started)
-        /// </summary>
-        public async Task StopAsync()
+            /// Stop the client (if started)
+            /// </summary>
+            public async Task StopAsync()
         {
             if (_started)
             {

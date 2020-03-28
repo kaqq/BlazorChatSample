@@ -28,7 +28,7 @@ namespace BlazorChatSample.ConsoleApp
 
                 // connect to host: the HTTPS version may not work on localhost as the local IIS cert isn't valid
                 const string url = "http://localhost:6840";
-                var client = new ChatClient(username, url);
+                var client = new GameClient(username, url);
 
                 // create a message received handler
                 client.MessageReceived += Client_MessageReceived;

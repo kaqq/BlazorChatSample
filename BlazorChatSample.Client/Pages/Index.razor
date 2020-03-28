@@ -1,32 +1,54 @@
 ﻿@using BlazorChatSample.Shared 
 @page "/"
 @inject NavigationManager navigationManager
-
-<div class="top-row px-4">
-    @if (chatting)
+<div></div>
+@if (inGame)
+{
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+}
+<div class="top-row px-4 mainPage">
+    @if (inGame)
     {
-        <p>You are connected as <b>@username</b></p>
+    <p>You are connected as <b>@username</b> to the room  <b>@roomName</b> </p>
         <button class="btn btn-sm btn-warning ml-md-auto" @onclick="@DisconnectAsync">Disconnect</button>
     }
 </div>
 
 <div class="content px-4">
 
-    <h1>Blazor SignalR Chat Sample</h1>
+    <h1>Inspector board game</h1>
 
-    @if (!chatting)
+    @if (!inGame)
     {
         @* Moved instructions to shared component *@
         <Instructions />
 
-        <h2>Chat</h2>
+        <h2></h2>
+        <p>
+            Enter your name:
+        </p>
+        <input type="text" maxlength="32" @bind="@username" />
 
         <p>
-            Enter your name to start chatting:
+            create new room:
+        </p>
+        <input type="text" maxlength="32" @bind="@roomName" />
+        <button type="button" @onclick="@(()=>StartRoom(roomName))"><span class="oi oi-chat" aria-hidden="true"></span> Create room</button>
+
+        <p>
+            Select room:
         </p>
 
-        <input type="text" maxlength="32" @bind="@username" />
-        <button type="button" @onclick="@Chat"><span class="oi oi-chat" aria-hidden="true"></span> Chat!</button>
+        @foreach (var room in rooms)
+        {
+            <div>
+                <div class="user">@room.Name</div>
+                <div class="msg">@room.GuestCount</div>
+                <button type="button" @onclick="@(() => StartRoom(room.Name))"><span class="oi oi-chat" aria-hidden="true"></span>Join</button>
+            </div>
+        }
 
         @if (message != null)
         {
@@ -35,7 +57,7 @@
         }
     }
 
-    @if (chatting)
+    @if (inGame)
     {
         <div id="scrollbox">
 
@@ -54,51 +76,60 @@
 </div>
 
 @code  {
-    // flag to indicate chat status
-    bool chatting = false;
+    bool inGame = false;
 
-    // name of the user who will be chatting
     string username = null;
 
-    ChatClient client = null;
+    string roomName = null;
 
-    // on-screen message
+    GameClient client = null;
+
     string message = null;
 
-    // new message input
     string newMessage = null;
 
-    // list of messages in chat
     List<Message> messages = new List<Message>();
 
-    /// <summary>
-    /// Start chat client
-    /// </summary>
-    async Task Chat()
+
+    List<ChatRoom> rooms = new List<ChatRoom>()
     {
-        // check username is valid
+        new ChatRoom()
+        {
+            GuestCount = 1,
+            Name = "room1",
+
+        },
+        new ChatRoom()
+        {
+            GuestCount = 1,
+            Name = "room2",
+        }
+    };
+
+
+    async Task StartRoom(string roomName)
+    {
         if (string.IsNullOrWhiteSpace(username))
         {
             message = "Please enter a name";
             return;
         };
-
+        if (string.IsNullOrWhiteSpace(roomName))
+        {
+            message = "Please select room";
+            return;
+        };
+        this.roomName = roomName;
         try
         {
-            // remove old messages if any
             messages.Clear();
-
-            // Create the chat client
             string baseUrl = navigationManager.BaseUri;
-            client = new ChatClient(username, baseUrl);
-            // add an event handler for incoming messages
+            client = new GameClient(username, roomName, baseUrl);
             client.MessageReceived += MessageReceived;
-            // start the client
             Console.WriteLine("Index: chart starting...");
             await client.StartAsync();
             Console.WriteLine("Index: chart started?");
-
-            chatting = true;
+            inGame = true;
         }
         catch (Exception e)
         {
@@ -108,45 +139,34 @@
         }
     }
 
-    /// <summary>
-    /// Inbound message
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     void MessageReceived(object sender, MessageReceivedEventArgs e)
     {
-        Console.WriteLine($"Blazor: receive {e.Username}: {e.Message}");
         bool isMine = false;
         if (!string.IsNullOrWhiteSpace(e.Username))
         {
             isMine = string.Equals(e.Username, username, StringComparison.CurrentCultureIgnoreCase);
         }
-
         var newMsg = new Message(e.Username, e.Message, isMine);
         messages.Add(newMsg);
-
-        // Inform blazor the UI needs updating
         StateHasChanged();
     }
 
     async Task DisconnectAsync()
     {
-        if (chatting)
+        if (inGame)
         {
             await client.StopAsync();
             client = null;
-            message = "chat ended";
-            chatting = false;
+            message = "";
+            inGame = false;
         }
     }
 
     async Task SendAsync()
     {
-        if (chatting && !string.IsNullOrWhiteSpace(newMessage))
+        if (inGame && !string.IsNullOrWhiteSpace(newMessage))
         {
-            // send message to hub
             await client.SendAsync(newMessage);
-            // clear input box
             newMessage = "";
         }
     }
@@ -164,9 +184,6 @@
         public string Body { get; set; }
         public bool Mine { get; set; }
 
-        /// <summary>
-        /// Determine CSS classes to use for message div
-        /// </summary>
         public string CSS
         {
             get
