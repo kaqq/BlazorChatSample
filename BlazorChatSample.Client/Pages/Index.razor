@@ -11,7 +11,7 @@
 <div class="top-row px-4 mainPage">
     @if (inGame)
     {
-    <p>You are connected as <b>@username</b> to the room  <b>@roomName</b> </p>
+    <p>You are connected as <b>@startGameData.UserName</b> to the room  <b>@startGameData.RoomName</b> </p>
         <button class="btn btn-sm btn-warning ml-md-auto" @onclick="@DisconnectAsync">Disconnect</button>
     }
 </div>
@@ -24,32 +24,8 @@
     {
         @* Moved instructions to shared component *@
         <Instructions />
-
+        <GameStart AvailableRooms="@rooms" OnGameStart="@StartGame" />
         <h2></h2>
-        <p>
-            Enter your name:
-        </p>
-        <input type="text" maxlength="32" @bind="@username" />
-
-        <p>
-            create new room:
-        </p>
-        <input type="text" maxlength="32" @bind="@roomName" />
-        <button type="button" @onclick="@(()=>StartRoom(roomName))"><span class="oi oi-chat" aria-hidden="true"></span> Create room</button>
-
-        <p>
-            Select room:
-        </p>
-
-        @foreach (var room in rooms)
-        {
-            <div>
-                <div class="user">@room.Name</div>
-                <div class="msg">@room.GuestCount</div>
-                <button type="button" @onclick="@(() => StartRoom(room.Name))"><span class="oi oi-chat" aria-hidden="true"></span>Join</button>
-            </div>
-        }
-
         @if (message != null)
         {
             <div class="invalid-feedback">@message</div>
@@ -90,41 +66,42 @@
 
     List<Message> messages = new List<Message>();
 
+    StartGameData startGameData = null;
 
-    List<ChatRoom> rooms = new List<ChatRoom>()
+    List<GameRoom> rooms = new List<GameRoom>()
     {
-        new ChatRoom()
+        new GameRoom()
         {
-            GuestCount = 1,
+            GuestCount = "1",
             Name = "room1",
 
         },
-        new ChatRoom()
+        new GameRoom()
         {
-            GuestCount = 1,
+            GuestCount = "1",
             Name = "room2",
         }
     };
 
 
-    async Task StartRoom(string roomName)
+    async Task StartGame(StartGameData data)
     {
-        if (string.IsNullOrWhiteSpace(username))
+        if (string.IsNullOrWhiteSpace(data.UserName))
         {
             message = "Please enter a name";
             return;
         };
-        if (string.IsNullOrWhiteSpace(roomName))
+        if (string.IsNullOrWhiteSpace(data.RoomName))
         {
             message = "Please select room";
             return;
         };
-        this.roomName = roomName;
         try
         {
+            startGameData = data;
             messages.Clear();
             string baseUrl = navigationManager.BaseUri;
-            client = new GameClient(username, roomName, baseUrl);
+            client = new GameClient(data.UserName, data.RoomName, baseUrl);
             client.MessageReceived += MessageReceived;
             Console.WriteLine("Index: chart starting...");
             await client.StartAsync();

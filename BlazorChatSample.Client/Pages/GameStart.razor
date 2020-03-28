@@ -1,0 +1,44 @@
+﻿@using BlazorChatSample.Shared
+<p>
+    Enter your name:
+</p>
+<input type="text" maxlength="32" @bind="@username" />
+
+<p>
+    create new room:
+</p>
+<input type="text" maxlength="32" @bind="@NewRoomName" />
+<button type="button" @onclick="@(()=>StartRoom(NewRoomName))"><span class="oi oi-chat" aria-hidden="true"></span> Create room</button>
+
+<p>
+    Select room:
+</p>
+
+@foreach (var room in AvailableRooms)
+{
+    <div>
+        <div class="user">@room.Name</div>
+        <div class="msg">@room.GuestCount</div>
+        <button type="button" @onclick="@(() => StartRoom(room.Name))"><span class="oi oi-chat" aria-hidden="true"></span>Join</button>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public List<GameRoom> AvailableRooms { get; set; }
+
+    public string username { get; set; }
+    public string NewRoomName { get; set; }
+
+    [Parameter]
+    public EventCallback<StartGameData> OnGameStart { get; set; }
+
+
+    private void StartRoom(string roomName)
+    {
+        if (OnGameStart.HasDelegate)
+        {
+            OnGameStart.InvokeAsync(new StartGameData(){RoomName = roomName,UserName = username});
+        }
+    }
+}

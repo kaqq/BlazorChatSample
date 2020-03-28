@@ -4,10 +4,10 @@ using System.Text;
 
 namespace BlazorChatSample.Shared
 {
-    public class ChatRoom
+    public class GameRoom
     {
         public string Name { get; set; }
-        public int GuestCount { get; set; }
+        public string GuestCount { get; set; }
     }
 
     public class Player
