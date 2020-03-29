@@ -1,40 +1,22 @@
-﻿@using BlazorChatSample.Shared 
+﻿@using BlazorChatSample.Shared
 @page "/"
 @inject NavigationManager navigationManager
-<div></div>
+
 @if (inGame)
 {
     <div class="sidebar">
         <NavMenu />
     </div>
-}
+
 <div class="top-row px-4 mainPage">
     @if (inGame)
     {
-    <p>You are connected as <b>@startGameData.UserName</b> to the room  <b>@startGameData.RoomName</b> </p>
+        <p>You are connected as <b>@startGameData.UserName</b> to the room <b>@startGameData.RoomName</b> </p>
         <button class="btn btn-sm btn-warning ml-md-auto" @onclick="@DisconnectAsync">Disconnect</button>
     }
-</div>
+    </div>
 
-<div class="content px-4">
-
-    <h1>Inspector board game</h1>
-
-    @if (!inGame)
-    {
-        @* Moved instructions to shared component *@
-        <Instructions />
-        <GameStart AvailableRooms="@rooms" OnGameStart="@StartGame" />
-        <h2></h2>
-        @if (message != null)
-        {
-            <div class="invalid-feedback">@message</div>
-            <small id="emailHelp" class="form-text text-muted">@message</small>
-        }
-    }
-
-    @if (inGame)
-    {
+    <div class="content px-4">
         <div id="scrollbox">
 
             @foreach (var item in messages)
@@ -48,7 +30,21 @@
             <textarea class="input-lg" placeholder="enter your comment" @bind="@newMessage"></textarea>
             <button class="btn btn-default" @onclick="@SendAsync">Send</button>
         </div>
+    </div>
+}
+
+    @if (!inGame)
+    {
+        <GameStart AvailableRooms="@rooms" OnGameStart="@StartGame" />
+        <h2></h2>
+        @if (message != null)
+        {
+            <div class="invalid-feedback">@message</div>
+            <small id="emailHelp" class="form-text text-muted">@message</small>
+        }
     }
+
+
 </div>
 
 @code  {
