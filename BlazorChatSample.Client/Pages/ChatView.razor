@@ -25,9 +25,14 @@
 
     List<Message> messages = new List<Message>();
 
+    protected override async Task OnInitializedAsync()
+    {
+        ChatClient.MessageReceived += MessageReceived;
+    }
 
     void MessageReceived(object sender, MessageReceivedEventArgs e)
     {
+        
         messages.Add(new Message(e.Username, e.Message, e.IsMine));
         StateHasChanged();
     }
