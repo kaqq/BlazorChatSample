@@ -14,7 +14,7 @@
     Select room:
 </p>
 
-@foreach (var room in AvailableRooms)
+@foreach (var room in AvailableGroups)
 {
     <div>
         <div class="user">@room.Name</div>
@@ -24,8 +24,8 @@
 }
 
 @code {
-    [Parameter]
-    public List<GameRoom> AvailableRooms { get; set; }
+
+    public List<Group> AvailableGroups { get; set; }= new List<Group>();
 
     public string username { get; set; }
     public string NewRoomName { get; set; }
@@ -33,12 +33,44 @@
     [Parameter]
     public EventCallback<StartGameData> OnGameStart { get; set; }
 
+    [Parameter]
+    public IRoomDataClient RoomDataClient { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitializedAsync();
+        RoomDataClient.GroupChanged += this.GroupChanged;
+        RoomDataClient.GroupRemoved += this.GroupRemoved;
+    }
 
     private void StartRoom(string roomName)
     {
         if (OnGameStart.HasDelegate)
         {
-            OnGameStart.InvokeAsync(new StartGameData(){RoomName = roomName,UserName = username});
+            OnGameStart.InvokeAsync(new StartGameData(){GroupName = roomName,UserName = username});
         }
     }
-}
+
+    void GroupRemoved(object sender, RoomUpdateEventArgs e)
+    {
+        Console.WriteLine($"Room Removed: {e.RoomName} {e.Guests}");
+        var target = AvailableGroups.RemoveAll(x => x.Name == e.RoomName);
+        StateHasChanged();
+    }
+
+    void GroupChanged(object sender, RoomUpdateEventArgs e)
+    {
+        Console.WriteLine($"Room Added: {e.RoomName} {e.Guests}");
+        var target = AvailableGroups.FirstOrDefault(x => x.Name == e.RoomName);
+        if (target != null)
+        {
+            target.GuestCount = e.Guests;
+        }
+        else
+        {
+            this.AvailableGroups.Add(new Group() { Name = e.RoomName, GuestCount = e.Guests });
+        }
+        StateHasChanged();
+    }
+
+    }

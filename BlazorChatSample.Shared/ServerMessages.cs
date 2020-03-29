@@ -12,5 +12,8 @@
         public const string SEND = "SendMessage";
 
         public const string PLAYERACTION = "PlayerAction";
+
+        public const string GETGROUPS = "GetGroups";
+
     }
 }

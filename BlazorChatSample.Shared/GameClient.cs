@@ -1,33 +1,47 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace BlazorChatSample.Shared
 {
-
-    public class GameClient : IAsyncDisposable
+    public interface IChatClient
     {
-        public const string HUBURL = "/ChatHub";
+        event EventHandler<MessageReceivedEventArgs> MessageReceived;
 
-        private readonly string _hubUrl;
+        /// <summary>
+        /// Send a message to the hub
+        /// </summary>
+        /// <param name="message">message to send</param>
+        Task SendAsync(string message);
+    }
+    public interface IRoomDataClient
+    {
+        event EventHandler<RoomUpdateEventArgs> GroupChanged;
+        event EventHandler<RoomUpdateEventArgs> GroupRemoved;
+    }
+
+    public class GameClient : IGameClient, IAsyncDisposable, IChatClient, IRoomDataClient
+    {
+        public static string HUBURL = "/ChatHub";
+
+        private string _hubUrl;
+
         private HubConnection _hubConnection;
 
-        public GameClient(string username,string roomName, string siteUrl)
+        public void Init(string siteUrl)
         {
-            if (string.IsNullOrWhiteSpace(username))
-                throw new ArgumentNullException(nameof(username));
-            if (string.IsNullOrWhiteSpace(roomName))
-                throw new ArgumentNullException(nameof(roomName));
             if (string.IsNullOrWhiteSpace(siteUrl))
                 throw new ArgumentNullException(nameof(siteUrl));
-            _username = username;
-            _roomName = roomName;
             _hubUrl = siteUrl.TrimEnd('/') + HUBURL;
         }
 
-        private readonly string _username;
+        private string _username;
 
-        private readonly string _roomName;
+        private string _roomName;
 
         private bool _started = false;
 
@@ -39,48 +53,72 @@ namespace BlazorChatSample.Shared
                 _hubConnection = new HubConnectionBuilder()
                     .WithUrl(_hubUrl)
                     .Build();
-                RegisterServerEvents();
+                BrowserAgentHelper.RegisterServerEventsForType<GameClient,IGameClient>(this,_hubConnection);
                 await _hubConnection.StartAsync();
-                await _hubConnection.SendAsync(ServerMessages.JOINROOM, _username, _roomName);
                 _started = true;
             }
         }
 
-        private void RegisterServerEvents()
+        public async Task StartGame(string username, string roomName)
         {
-            _hubConnection.On<string, string>(ServerMessages.RECEIVE, (user, message) =>
+            if (string.IsNullOrWhiteSpace(username))
+                throw new ArgumentNullException(nameof(username));
+            if (string.IsNullOrWhiteSpace(roomName))
+                throw new ArgumentNullException(nameof(roomName));
+            _username = username;
+            _roomName = roomName;
+            await _hubConnection.SendAsync(ServerMessages.JOINROOM, _username, _roomName);
+        }
+
+
+        public async Task ReceiveMessage(string user, string message)
+        {
+            Console.WriteLine($"Incomming message: {user} {message}" );
+            bool isMine = false;
+            if (!string.IsNullOrWhiteSpace(user))
             {
-                HandleReceiveMessage(user, message);
-            });
-            _hubConnection.On<string>(ClientMessages.CLIENTJOINED, (user) =>
+                isMine = string.Equals(user, _username, StringComparison.CurrentCultureIgnoreCase);
+            }
+            MessageReceived?.Invoke(this, new MessageReceivedEventArgs(user, message, isMine));
+        }
+
+        public async Task NewGroupAdded(Group @group)
+        {
+            this.GroupChanged?.Invoke(this,new RoomUpdateEventArgs(group.Name,group.GuestCount));
+        }
+
+        public async Task OnClientJoined(string username)
+        {
+           this.ClientJoined?.Invoke(this,new ClientUpdateEventArgs(username));
+        }
+
+        public async Task OnGroupDataInfo(List<Group> groups)
+        {
+            foreach (var group in groups)
             {
-                HandleNewClient(user);
-            });
+                this.GroupChanged?.Invoke(this, new RoomUpdateEventArgs(group.Name, group.GuestCount));
+            }
         }
 
-        private void HandleNewClient(string user)
+        public async Task OnClientLeaved(string username)
         {
-          
+            this.ClientLeaved?.Invoke(this, new ClientUpdateEventArgs(username));
         }
 
-        /// <summary>
-        /// Handle an inbound message from a hub
-        /// </summary>
-        /// <param name="method">event name</param>
-        /// <param name="message">message content</param>
-        private void HandleReceiveMessage(string username, string message)
+        public async Task OnGroupRemoved(String groupName)
         {
-            // raise an event to subscribers
-            MessageReceived?.Invoke(this, new MessageReceivedEventArgs(username, message));
+            this.GroupRemoved?.Invoke(this, new RoomUpdateEventArgs(groupName, "0"));
         }
 
-        /// <summary>
-        /// Event raised when this client receives a message
-        /// </summary>
-        /// <remarks>
-        /// Instance classes should subscribe to this event
-        /// </remarks>
-        public event MessageReceivedEventHandler MessageReceived;
+        public event EventHandler<RoomUpdateEventArgs> GroupChanged;
+
+        public event EventHandler<RoomUpdateEventArgs> GroupRemoved;
+
+        public event EventHandler<ClientUpdateEventArgs> ClientLeaved;
+
+        public event EventHandler<ClientUpdateEventArgs> ClientJoined;
+
+        public event EventHandler<MessageReceivedEventArgs> MessageReceived;
 
         /// <summary>
         /// Send a message to the hub
@@ -92,18 +130,18 @@ namespace BlazorChatSample.Shared
             if (!_started)
                 throw new InvalidOperationException("Client not started");
             // send the message
-            await _hubConnection.SendAsync(ServerMessages.SEND, _username, message);
+            await _hubConnection.SendAsync(nameof(IServerAgent.SendMessage), message);
         }
 
         public async Task PlayerAction(PlayerAction action)
         {
-            await _hubConnection.SendAsync(ServerMessages.PLAYERACTION,  action);
+            await _hubConnection.SendAsync(ServerMessages.PLAYERACTION, action);
         }
 
         /// <summary>
-            /// Stop the client (if started)
-            /// </summary>
-            public async Task StopAsync()
+        /// Stop the client (if started)
+        /// </summary>
+        public async Task StopAsync()
         {
             if (_started)
             {
@@ -125,37 +163,45 @@ namespace BlazorChatSample.Shared
             Console.WriteLine("ChatClient: Disposing");
             await StopAsync();
         }
+
+
+        public async Task ExitGroup(string groupName)
+        {
+            await _hubConnection.SendAsync(nameof(IServerAgent.ExitGroup), groupName);
+        }
     }
 
-    /// <summary>
-    /// Delegate for the message handler
-    /// </summary>
-    /// <param name="sender">the SignalRclient instance</param>
-    /// <param name="e">Event args</param>
-    public delegate void MessageReceivedEventHandler(object sender, MessageReceivedEventArgs e);
 
-    /// <summary>
-    /// Message received argument class
-    /// </summary>
-    public class MessageReceivedEventArgs : EventArgs
+    public class MessageReceivedEventArgs : ClientUpdateEventArgs
     {
-        public MessageReceivedEventArgs(string username, string message)
+        public MessageReceivedEventArgs(string username, string message,bool isMine) :base(username)
         {
-            Username = username;
             Message = message;
+            IsMine = isMine;
         }
 
-        /// <summary>
-        /// Name of the message/event
-        /// </summary>
-        public string Username { get; set; }
+        public bool IsMine { get; set; }
 
-        /// <summary>
-        /// Message data items
-        /// </summary>
         public string Message { get; set; }
-
     }
 
+    public class ClientUpdateEventArgs : EventArgs
+    {
+        public ClientUpdateEventArgs(string username)
+        {
+            Username = username;
+        }
+        public string Username { get; set; }
+    }
+    public class RoomUpdateEventArgs : EventArgs
+    {
+        public RoomUpdateEventArgs(string roomName,string guests)
+        {
+            RoomName = roomName;
+            Guests = guests;
+        }
+        public string RoomName { get; set; }
+        public string Guests { get; set; }
+    }
 }
 

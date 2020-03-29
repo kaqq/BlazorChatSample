@@ -6,7 +6,7 @@ namespace BlazorChatSample.Shared
 {
     public class StartGameData
     {
-        public string RoomName { get; set; }
+        public string GroupName { get; set; }
         public string UserName { get; set; }
     }
 }

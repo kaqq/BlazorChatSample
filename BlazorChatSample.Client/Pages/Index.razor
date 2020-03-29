@@ -5,80 +5,49 @@
 @if (inGame)
 {
     <div class="sidebar">
-        <NavMenu />
-    </div>
 
-<div class="top-row px-4 mainPage">
-    @if (inGame)
-    {
-        <p>You are connected as <b>@startGameData.UserName</b> to the room <b>@startGameData.RoomName</b> </p>
+    </div>
+    <div class="top-row px-4 mainPage">
+        <p>You are connected as <b>@startGameData.UserName</b> to the room <b>@startGameData.GroupName</b> </p>
         <button class="btn btn-sm btn-warning ml-md-auto" @onclick="@DisconnectAsync">Disconnect</button>
-    }
     </div>
 
-    <div class="content px-4">
-        <div id="scrollbox">
 
-            @foreach (var item in messages)
-            {
-                <div class="@item.CSS">
-                    <div class="user">@item.Username</div>
-                    <div class="msg">@item.Body</div>
-                </div>
-            }
-            <hr />
-            <textarea class="input-lg" placeholder="enter your comment" @bind="@newMessage"></textarea>
-            <button class="btn btn-default" @onclick="@SendAsync">Send</button>
-        </div>
-    </div>
+    <ChatView ChatClient="@client" />
+   
 }
 
-    @if (!inGame)
+@if (!inGame)
+{
+    <GameStart RoomDataClient="@client" OnGameStart="@StartGame" />
+    <h2></h2>
+    @if (message != null)
     {
-        <GameStart AvailableRooms="@rooms" OnGameStart="@StartGame" />
-        <h2></h2>
-        @if (message != null)
-        {
-            <div class="invalid-feedback">@message</div>
-            <small id="emailHelp" class="form-text text-muted">@message</small>
-        }
+        <div class="invalid-feedback">@message</div>
+        <small id="emailHelp" class="form-text text-muted">@message</small>
     }
-
-
-</div>
+}
 
 @code  {
     bool inGame = false;
 
-    string username = null;
-
-    string roomName = null;
-
-    GameClient client = null;
-
     string message = null;
 
-    string newMessage = null;
-
-    List<Message> messages = new List<Message>();
+    GameClient client = new GameClient();
 
     StartGameData startGameData = null;
 
-    List<GameRoom> rooms = new List<GameRoom>()
+
+
+
+
+    protected override async Task OnInitializedAsync()
     {
-        new GameRoom()
-        {
-            GuestCount = "1",
-            Name = "room1",
-
-        },
-        new GameRoom()
-        {
-            GuestCount = "1",
-            Name = "room2",
-        }
-    };
-
+        client.Init(navigationManager.BaseUri);
+        Console.WriteLine("Index: chart starting...");
+        await client.StartAsync();
+        Console.WriteLine("Index: chart started?");
+    }
 
     async Task StartGame(StartGameData data)
     {
@@ -87,7 +56,7 @@
             message = "Please enter a name";
             return;
         };
-        if (string.IsNullOrWhiteSpace(data.RoomName))
+        if (string.IsNullOrWhiteSpace(data.GroupName))
         {
             message = "Please select room";
             return;
@@ -95,13 +64,7 @@
         try
         {
             startGameData = data;
-            messages.Clear();
-            string baseUrl = navigationManager.BaseUri;
-            client = new GameClient(data.UserName, data.RoomName, baseUrl);
-            client.MessageReceived += MessageReceived;
-            Console.WriteLine("Index: chart starting...");
-            await client.StartAsync();
-            Console.WriteLine("Index: chart started?");
+            await client.StartGame(data.UserName, data.GroupName);
             inGame = true;
         }
         catch (Exception e)
@@ -112,58 +75,20 @@
         }
     }
 
-    void MessageReceived(object sender, MessageReceivedEventArgs e)
-    {
-        bool isMine = false;
-        if (!string.IsNullOrWhiteSpace(e.Username))
-        {
-            isMine = string.Equals(e.Username, username, StringComparison.CurrentCultureIgnoreCase);
-        }
-        var newMsg = new Message(e.Username, e.Message, isMine);
-        messages.Add(newMsg);
-        StateHasChanged();
-    }
+
+
 
     async Task DisconnectAsync()
     {
         if (inGame)
         {
-            await client.StopAsync();
-            client = null;
+            await client.ExitGroup(startGameData.GroupName);
             message = "";
             inGame = false;
         }
     }
 
-    async Task SendAsync()
-    {
-        if (inGame && !string.IsNullOrWhiteSpace(newMessage))
-        {
-            await client.SendAsync(newMessage);
-            newMessage = "";
-        }
-    }
 
-    class Message
-    {
-        public Message(string username, string body, bool mine)
-        {
-            Username = username;
-            Body = body;
-            Mine = mine;
-        }
 
-        public string Username { get; set; }
-        public string Body { get; set; }
-        public bool Mine { get; set; }
-
-        public string CSS
-        {
-            get
-            {
-                return Mine ? "sent" : "received";
-            }
-        }
-    }
 
 }

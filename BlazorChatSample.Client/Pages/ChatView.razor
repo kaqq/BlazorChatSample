@@ -1,0 +1,64 @@
+﻿@using BlazorChatSample.Shared
+<div class="content px-4">
+    <div id="scrollbox">
+        @foreach (var item in messages)
+        {
+            <div class="@item.CSS">
+                <div class="user">@item.Username</div>
+                <div class="msg">@item.Body</div>
+            </div>
+        }
+        <hr />
+        <textarea class="input-lg" placeholder="enter your comment" @bind="@newMessage"></textarea>
+        <button class="btn btn-default" @onclick="@SendAsync">Send</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<Group> C { get; set; }
+
+    [Parameter]
+    public IChatClient ChatClient { get; set; }
+
+    string newMessage = null;
+
+    List<Message> messages = new List<Message>();
+
+
+    void MessageReceived(object sender, MessageReceivedEventArgs e)
+    {
+        messages.Add(new Message(e.Username, e.Message, e.IsMine));
+        StateHasChanged();
+    }
+    async Task SendAsync()
+    {
+        if ( !string.IsNullOrWhiteSpace(newMessage))
+        {
+            await ChatClient.SendAsync(newMessage);
+            newMessage = "";
+        }
+    }
+
+    class Message
+    {
+        public Message(string username, string body, bool mine)
+        {
+            Username = username;
+            Body = body;
+            Mine = mine;
+        }
+
+        public string Username { get; set; }
+        public string Body { get; set; }
+        public bool Mine { get; set; }
+
+        public string CSS
+        {
+            get
+            {
+                return Mine ? "sent" : "received";
+            }
+        }
+    }
+}

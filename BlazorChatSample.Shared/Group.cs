@@ -4,7 +4,7 @@ using System.Text;
 
 namespace BlazorChatSample.Shared
 {
-    public class GameRoom
+    public class Group
     {
         public string Name { get; set; }
         public string GuestCount { get; set; }

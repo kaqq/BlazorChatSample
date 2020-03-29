@@ -33,6 +33,7 @@ namespace BlazorChatSample.Server
             {
                 app.UseDeveloperExceptionPage();
                 app.UseWebAssemblyDebugging();
+           
             }
 
             app.UseStaticFiles();
